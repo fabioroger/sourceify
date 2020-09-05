@@ -33,7 +33,8 @@ module.exports = function(filename, options) {
 
                 var relativePath = path.relative(cwd, path.resolve(path.dirname(filename)))
                 var sources = smap.getProperty('sources');
-                if (sources && sources.length) {
+                var sourcesContent = smap.getProperty('sourcesContent');
+                if (sources && sources.length && (!sourcesContent || sourcesContent.length !== sources.length)) {
                     smap.setProperty('sourcesContent', sources.map(source => {
                         var sourceFilename = path.resolve(relativePath, source);
                         return fs.readFileSync(sourceFilename, 'utf8');
