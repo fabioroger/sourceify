@@ -5,6 +5,13 @@ var through = require('through2');
 
 var cwd = process.cwd();
 
+var config
+try {
+    config = JSON.parse(fs.readFileSync('./package.json').toString()).sourceify || {}
+} catch (e) {
+    console.warn(`Count not read ${cwd}/package.json "sourceify" entry:`, e)
+}
+
 module.exports = function(filename, options) {
     if (!/\.js$/.test(filename) || !options._flags.debug) {
         return through();
@@ -49,10 +56,29 @@ module.exports = function(filename, options) {
     }
 };
 
+let rootsEntries = config.unWebpack && config.unWebpack.roots && Object.entries(config.unWebpack.roots) || {}
+
 // This algorithm is for resolving the sourceRoot property so that it is
 // relative to it's npm package folder instead of just '/source/'
 function getRoot(cwd, filename, smap) {
     var relativePath = path.relative(cwd, filename);
+    if (config.unWebpack && smap.sourcemap.sources.find(a => a.startsWith('webpack:'))) {
+        const found = rootsEntries.find(([key]) => relativePath.includes(key))
+        if (found) {
+            const newSources = smap.sourcemap.sources.map(a => {
+                if (a.startsWith('webpack:///')) {
+                    return a.substr('webpack:///'.length)
+                } else {
+                    return a
+                }
+            })
+            smap.setProperty('sources', newSources)
+
+            const [dependency, root] = found
+            const t = relativePath.indexOf(dependency)
+            return relativePath.substr(0, t) + root
+        }
+    }
 
     var segments = relativePath.split('node_modules');
 
